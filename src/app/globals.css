@@ -1,26 +1,128 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Tokens — roxo vibrante sobre preto
+   ============================================================ */
+@theme {
+  --color-ink: #050307;          /* fundo base */
+  --color-ink-2: #0c0812;        /* superfícies */
+  --color-ink-3: #150e1f;        /* cartões */
+  --color-line: #2a1d3d;         /* bordas */
+  --color-violet: #8b3dff;       /* primária */
+  --color-violet-hi: #a970ff;    /* primária clara (texto sobre preto: 6,4:1) */
+  --color-orchid: #d946ef;       /* acento quente, uso pontual */
+  --color-lilac: #e9dcff;        /* realce */
+  --color-paper: #f6f1ff;        /* texto principal (18:1) */
+  --color-mute: #a99bc2;         /* texto secundário (7,6:1) */
+
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html {
+  background: var(--color-ink);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--color-violet);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-violet-hi);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   Texturas
+   ============================================================ */
+
+/* Grão de filme sobre a página inteira (SVG feTurbulence, sem imagem externa). */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: -50%;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.075;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  animation: grain 1.2s steps(6) infinite;
+}
+
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-3%, 2%); }
+  40% { transform: translate(2%, -4%); }
+  60% { transform: translate(-4%, -1%); }
+  80% { transform: translate(3%, 3%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* Malha técnica (papel milimetrado) que some nas bordas. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(139 61 255 / 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(139 61 255 / 0.09) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 30%, transparent 75%);
+}
+
+/* Chapa metálica escovada para os cartões. */
+.bg-brushed {
+  background-color: var(--color-ink-3);
+  background-image:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.018) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 80% at 0% 0%, rgb(139 61 255 / 0.16), transparent 60%);
+}
+
+/* Texto vazado para os títulos gigantes de fundo. */
+.text-outline {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgb(169 112 255 / 0.85);
+}
+
+/* drop-shadow no bloco (não text-shadow): as letras ficam em máscaras com overflow hidden,
+   que cortariam a sombra de cada uma em caixas. */
+.text-glow {
+  filter: drop-shadow(0 0 28px rgb(139 61 255 / 0.55)) drop-shadow(0 0 80px rgb(139 61 255 / 0.3));
+}
+
+/* Faixa de estados da FSM (marquee). */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 38s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain::after,
+  .animate-marquee {
+    animation: none;
+  }
 }
