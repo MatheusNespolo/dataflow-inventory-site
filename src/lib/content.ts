@@ -109,7 +109,7 @@ export const destaques = [
   {
     titulo: "Qualidade contínua",
     texto:
-      "43 testes da lógica do firmware rodando no PC, E2E com Playwright e um CI que compila os sketches e barra o uso de RAM do Uno.",
+      "84 testes da lógica do firmware rodando no PC, E2E com Playwright e um CI que compila os sketches e barra o uso de RAM do Uno.",
     detalhe: "GitHub Actions",
     grande: true,
   },
