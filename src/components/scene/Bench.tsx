@@ -24,13 +24,22 @@ const SEG_POR_U = CICLO * 0.85;
 const U_APROVADO = 0.04;
 const ANGULOS_RODA = SEPARADOR.angulos.map((g) => THREE.MathUtils.degToRad(g));
 
-/** O que o OLED mostra em cada fase do trajeto (textos no estilo do firmware). */
+/** Fase em que a peça passa pela junção (fim do capítulo 05). */
+const U_JUNCAO = 0.45;
+
+/**
+ * O que o OLED mostra em cada fase do trajeto: os mesmos textos do firmware
+ * (src/logica/telas.cpp). Na verificação a tela de estoque continua; a de entrega
+ * aparece quando o motor parte; depois da junção, "Saindo da esteira"; no fim, a
+ * tela de entrega concluída com o sistema já de volta a aguardar.
+ */
 function telaOled(u: number, p: string): [string, string, EstadoOled] {
   if (u <= 0) return ["Estoque:", "A:15 B:15 C:15", "AGUARDANDO"];
-  if (u < U_APROVADO) return [`Pedido: ${p}`, "Verificando...", "VERIFICANDO"];
-  if (u < 0.1) return [`Entregando ${p}`, "Ligando esteira", "ACIONANDO"];
-  if (u < 0.6) return [`Entregando ${p}`, "Aguarda juncao", "ENTREGANDO"];
-  return ["Entrega OK!", `Entregue! ${p}:14`, "AGUARDANDO"];
+  if (u < U_APROVADO) return ["Estoque:", "A:15 B:15 C:15", "VERIFICANDO"];
+  if (u < 0.1) return [`Entregando ${p}`, "Aguarda juncao", "ACIONANDO"];
+  if (u < U_JUNCAO) return [`Entregando ${p}`, "Aguarda juncao", "ENTREGANDO"];
+  if (u < 0.6) return ["Saindo da", "esteira...", "ENTREGANDO"];
+  return ["Entrega OK!", `Entregue! ${p}:`, "AGUARDANDO"];
 }
 
 /** Fios: curvas suaves rentes à base, do Arduino até cada ponto. */
@@ -87,7 +96,7 @@ export function Bench() {
       // o 05 leva a peça até a junção; o 06 a leva pela principal até o compartimento B da roda.
       ativa = 1;
       const st = sceneState.story - 4;
-      u = st < 1 ? THREE.MathUtils.clamp(st, 0, 1) * 0.45 : Math.min(1, 0.45 + ((st - 1) / 0.85) * 0.55);
+      u = st < 1 ? THREE.MathUtils.clamp(st, 0, 1) * U_JUNCAO : Math.min(1, U_JUNCAO + ((st - 1) / 0.85) * (1 - U_JUNCAO));
     }
 
     // Lonas: a principal liga direto na fonte e nunca para; a secundária só anda na entrega.
