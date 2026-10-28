@@ -8,8 +8,8 @@ Este repositório guarda **só a página**. O código do projeto, a documentaç�
 
 ## O que tem na página
 
-- **Hero com a bancada em 3D:** modelo procedural da bancada real (4 esteiras, 6 sensores TCRT5000, Arduino Uno, ESP32, LCD, drivers IRF520 e fiação), com materiais PBR, reflexos de ambiente, vapor no motor, partículas e luzes dinâmicas.
-- **História guiada pela rolagem:** seis capítulos ("o caminho de um pedido") em que a câmera percorre a bancada e a peça B anda de verdade pela esteira.
+- **Hero com a bancada em 3D:** modelo procedural da bancada real (4 esteiras, 6 sensores TCRT5000, roda separadora com motor de passo, Arduino Uno, ESP32, display OLED, drivers IRF520 e fiação), com materiais PBR, reflexos de ambiente, vapor no motor, partículas e luzes dinâmicas.
+- **História guiada pela rolagem:** seis capítulos ("o caminho de um pedido") em que a câmera percorre a bancada e a peça B anda de verdade pela esteira até cair no compartimento B da roda separadora.
 - **Números, arquitetura, destaques técnicos e chamada final** para o repositório, com contadores, linha desenhada pela rolagem, cartões com holofote e botões magnéticos.
 
 O modelo 3D é **ilustrativo**: gerado em código a partir do layout da bancada, sem arquivos de malha externos.
@@ -58,7 +58,7 @@ Os números e textos de `src/lib/content.ts` vêm do repositório oficial. Se o 
 
 ## Acessibilidade e desempenho
 
-- `prefers-reduced-motion` congela o giro, o vapor, as esteiras, o grão e a rolagem suave.
+- `prefers-reduced-motion` congela o giro, o vapor, as esteiras, a roda separadora, o grão e a rolagem suave.
 - A cena 3D é carregada só no navegador, depois da primeira pintura, e para de renderizar quando sai da tela; a resolução cai automaticamente em máquinas mais lentas.
 - No celular, o piso espelhado é trocado por um material simples e há menos partículas.
 

@@ -12,7 +12,8 @@ import { DataStream, Steam } from "./Effects";
 import { ELETRONICA, PRINCIPAL, SECUNDARIA } from "./layout";
 import { sceneState } from "./sceneState";
 
-type Quadro = { pos: THREE.Vector3; alvo: THREE.Vector3 };
+/** `alvoRetrato`: alvo opcional em telas em pé (o texto fica embaixo, a cena precisa ir para o centro). */
+type Quadro = { pos: THREE.Vector3; alvo: THREE.Vector3; alvoRetrato?: THREE.Vector3 };
 const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
 /** Enquadramentos dos 6 capítulos da história (mesma ordem de content.capitulos). */
@@ -20,9 +21,9 @@ const QUADROS: Quadro[] = [
   { pos: v(-1.4, 4.8, 9.6), alvo: v(-2.2, 0.3, 0.3) }, // 01 o clique — visão geral (bancada à direita do texto)
   { pos: v(-1.2, 10.5, 5.2), alvo: v(-0.4, 0, 0.6) }, // 02 a nuvem — de cima, com o fluxo descendo
   { pos: v(ELETRONICA.esp32.x + 1.3, 1.45, ELETRONICA.esp32.z + 1.9), alvo: v(ELETRONICA.esp32.x - 0.1, 0.2, ELETRONICA.esp32.z) }, // 03 gateway
-  { pos: v(ELETRONICA.arduino.x + 0.9, 1.6, ELETRONICA.arduino.z + 2.1), alvo: v((ELETRONICA.arduino.x + ELETRONICA.lcd.x) / 2, 0.3, ELETRONICA.arduino.z) }, // 04 decisão
+  { pos: v(ELETRONICA.arduino.x + 0.9, 1.6, ELETRONICA.arduino.z + 2.1), alvo: v((ELETRONICA.arduino.x + ELETRONICA.oled.x) / 2, 0.3, ELETRONICA.arduino.z) }, // 04 decisão
   { pos: v(3.4, 3.3, SECUNDARIA.zInicio - 2.2), alvo: v(-0.6, 0.6, -0.4) }, // 05 movimento — ao longo da esteira B
-  { pos: v(3.8, 3.1, PRINCIPAL.z + 4.4), alvo: v(-0.2, 0.5, PRINCIPAL.z - 0.6) }, // 06 entrega — junção e principal
+  { pos: v(0.6, 5, PRINCIPAL.z + 4.85), alvo: v(2.2, 0.3, PRINCIPAL.z - 0.35), alvoRetrato: v(3.5, 0.3, PRINCIPAL.z - 0.25) }, // 06 entrega — junção, principal e roda separadora
 ];
 
 const suave = (x: number) => x * x * (3 - 2 * x);
@@ -58,7 +59,8 @@ function Rig({ modelo }: { modelo: React.RefObject<THREE.Group | null> }) {
     const i = Math.min(Math.floor(st), n - 1);
     const k = suave(THREE.MathUtils.clamp(st - i, 0, 1));
     pos.lerpVectors(QUADROS[i].pos, QUADROS[i + 1].pos, k);
-    alvo.lerpVectors(QUADROS[i].alvo, QUADROS[i + 1].alvo, k);
+    const alvoDe = (q: Quadro) => (retrato && q.alvoRetrato) || q.alvo;
+    alvo.lerpVectors(alvoDe(QUADROS[i]), alvoDe(QUADROS[i + 1]), k);
     if (retrato) pos.sub(alvo).multiplyScalar(1.45).add(alvo);
 
     const mix = suave(THREE.MathUtils.clamp(s.storyMix, 0, 1));

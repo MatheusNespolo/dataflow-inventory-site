@@ -44,27 +44,104 @@ export function beltTexture() {
   return tex;
 }
 
-/** Visor do LCD 16x2 com a FSM (duas linhas). Retorna a textura e uma função para reescrever. */
-export function lcdTexture() {
-  const { c, ctx } = canvas(512, 160);
+/** Estados da FSM, na ordem dos ícones da faixa inferior do OLED. */
+export const ESTADOS_OLED = ["AGUARDANDO", "VERIFICANDO", "ACIONANDO", "ENTREGANDO", "ERRO"] as const;
+export type EstadoOled = (typeof ESTADOS_OLED)[number];
+
+/** Ícones 16x16 da faixa de estados do firmware ('#' = pixel aceso). */
+const ICONES: Record<EstadoOled, string[]> = {
+  AGUARDANDO: [ // ampulheta
+    "################", "################", ".#............#.", ".#............#.",
+    "..#..........#..", "...#..####..#...", "....#..##..#....", ".....#....#.....",
+    ".....#....#.....", "....#......#....", "...#...##...#...", "..#...####...#..",
+    ".#...######...#.", ".#..########..#.", "################", "################"],
+  VERIFICANDO: [ // lupa
+    "................", "....######......", "...#......#.....", "..#........#....",
+    ".#..........#...", ".#..........#...", ".#..........#...", ".#..........#...",
+    ".#..........#...", "..#........#....", "...#......###...", "....######.###..",
+    "...........###..", "............###.", ".............###", "..............##"],
+  ACIONANDO: [ // raio
+    ".........####...", "........####....", ".......####.....", "......####......",
+    ".....####.......", "....####........", "...##########...", "..##########....",
+    "......####......", ".....####.......", "....####........", "...####.........",
+    "..####..........", ".###............", "##..............", "#..............."],
+  ENTREGANDO: [ // caixa sobre a esteira com seta
+    "................", "....########....", "....#......#....", "....#.####.#....",
+    "....#......#....", "....########....", "................", "########...#....",
+    "############....", "########...#....", "................", "################",
+    "#..............#", "#.##..##..##..##", "#..............#", "################"],
+  ERRO: [ // triângulo com !
+    ".......##.......", ".......##.......", "......####......", "......#..#......",
+    ".....#.##.#.....", ".....#.##.#.....", "....#..##..#....", "....#..##..#....",
+    "...#...##...#...", "...#...##...#...", "..#..........#..", "..#....##....#..",
+    ".#.....##.....#.", ".#............#.", "################", "################"],
+};
+
+/**
+ * Tela do display OLED 0,96" 128x64 (SSD1306) bicolor, como o firmware desenha:
+ * linha 1 na faixa amarela (y 0–15), linha 2 em y 24–39 e, no rodapé (y 48–63), os 5 ícones
+ * da FSM em glifos de 20 px (x = 2 + k·25), com o do estado atual invertido.
+ * O canvas tem 128x64 pixels de verdade e é ampliado sem suavização (NearestFilter).
+ */
+export function oledTexture() {
+  const W = 128;
+  const H = 64;
+  const { c, ctx } = canvas(W, H);
+  // Canvas auxiliar 8x maior para rasterizar o texto e depois reduzir por cobertura (sem anti-alias).
+  const E = 8;
+  const aux = canvas(16 * 8 * E, 16 * E);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const escrever = (l1: string, l2: string) => {
-    ctx.fillStyle = "#2a0b5c";
-    ctx.fillRect(0, 0, 512, 160);
-    // Grade de pixels do LCD.
-    ctx.fillStyle = "rgba(255,255,255,0.035)";
-    for (let x = 0; x < 512; x += 32) ctx.fillRect(x, 0, 2, 160);
-    ctx.font = "bold 44px monospace";
-    ctx.fillStyle = "#e9dcff";
-    ctx.shadowColor = "#b388ff";
-    ctx.shadowBlur = 12;
-    ctx.fillText(l1.padEnd(16).slice(0, 16), 24, 62);
-    ctx.fillText(l2.padEnd(16).slice(0, 16), 24, 128);
-    ctx.shadowBlur = 0;
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  const px = new Uint8Array(W * H);
+
+  /** Rasteriza 16 colunas de texto (8 px cada, célula de 16 px de altura) a partir da linha y0. */
+  const texto = (s: string, y0: number) => {
+    const a = aux.ctx;
+    a.clearRect(0, 0, aux.c.width, aux.c.height);
+    a.fillStyle = "#fff";
+    a.font = `bold ${13 * E}px Consolas, "Courier New", monospace`;
+    a.textAlign = "center";
+    a.textBaseline = "alphabetic";
+    [...s.padEnd(16).slice(0, 16)].forEach((ch, i) => a.fillText(ch, (i * 8 + 4) * E, 12 * E));
+    const dados = a.getImageData(0, 0, aux.c.width, aux.c.height).data;
+    for (let y = 0; y < 16; y++) {
+      for (let x = 0; x < 128; x++) {
+        let soma = 0;
+        for (let dy = 0; dy < E; dy++) {
+          for (let dx = 0; dx < E; dx++) soma += dados[(((y * E + dy) * aux.c.width) + x * E + dx) * 4 + 3];
+        }
+        if (soma / (E * E * 255) > 0.38) px[(y0 + y) * W + x] = 1;
+      }
+    }
+  };
+
+  const escrever = (l1: string, l2: string, estado: EstadoOled) => {
+    px.fill(0);
+    texto(l1, 0);
+    texto(l2, 24);
+    ESTADOS_OLED.forEach((nome, k) => {
+      const x0 = 2 + k * 25;
+      const inv = nome === estado;
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 20; x++) {
+          const aceso = x >= 2 && x < 18 && ICONES[nome][y][x - 2] === "#";
+          px[(48 + y) * W + x0 + x] = aceso !== inv ? 1 : 0;
+        }
+      }
+    });
+    // Bicolor: os 16 px de cima acendem em amarelo, o resto em azul-ciano.
+    const img = ctx.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) {
+      const y = Math.floor(i / W);
+      const cor = px[i] ? (y < 16 ? [255, 214, 64] : [90, 196, 255]) : [4, 5, 8];
+      img.data.set([cor[0], cor[1], cor[2], 255], i * 4);
+    }
+    ctx.putImageData(img, 0, 0);
     tex.needsUpdate = true;
   };
-  escrever("DATA FLOW INV.", "AGUARDANDO");
+  escrever("Estoque:", "A:15 B:15 C:15", "AGUARDANDO");
   return { tex, escrever };
 }
 

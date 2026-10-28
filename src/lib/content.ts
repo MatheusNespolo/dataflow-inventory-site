@@ -44,7 +44,7 @@ export const capitulos = [
     codigo: "04",
     titulo: "A decisão",
     texto:
-      "No Arduino Uno, uma máquina de estados confere o estoque e o sensor do topo antes de qualquer movimento. Sem peça, sem motor — o erro aparece no LCD e no dashboard.",
+      "No Arduino Uno, uma máquina de estados confere o estoque e o sensor do topo antes de qualquer movimento. Sem peça, sem motor — o erro aparece no display e no dashboard.",
     tag: "Arduino Uno · FSM de 5 estados",
   },
   {
@@ -60,7 +60,7 @@ export const capitulos = [
     codigo: "06",
     titulo: "A entrega",
     texto:
-      "Só quando o sensor da junção confirma a passagem o estoque é debitado. O evento volta pelo mesmo caminho e o dashboard atualiza em tempo real — com métricas no Grafana.",
+      "Só quando o sensor da junção confirma a passagem o estoque é debitado, e a peça cai no compartimento certo da roda separadora. O evento volta pelo mesmo caminho e o dashboard atualiza em tempo real — com métricas no Grafana.",
     tag: "Estoque · Eventos · Métricas",
   },
 ] as const;
@@ -85,7 +85,7 @@ export const destaques = [
   {
     titulo: "Firmware que se defende",
     texto:
-      "Watchdog de 2 s que desliga os motores, causa do reset reportada no boot, LCD opcional e interrupções com limitador de rajadas.",
+      "Watchdog de 2 s que desliga os motores, causa do reset reportada no boot, display OLED opcional e interrupções com limitador de rajadas.",
     detalhe: "C++ · ATmega328P",
   },
   {
@@ -109,7 +109,7 @@ export const destaques = [
   {
     titulo: "Qualidade contínua",
     texto:
-      "84 testes da lógica do firmware rodando no PC, E2E com Playwright e um CI que compila os sketches e barra o uso de RAM do Uno.",
+      "88 testes da lógica do firmware rodando no PC, E2E com Playwright e um CI que compila os sketches e barra o uso de RAM do Uno.",
     detalhe: "GitHub Actions",
     grande: true,
   },
