@@ -23,6 +23,9 @@ export function useMateriais() {
     const pcbPreta = new THREE.MeshStandardMaterial({ map: pcbTexture("#121016", "#24202c"), roughness: 0.45, metalness: 0.1 });
     const pcbRoxa = new THREE.MeshStandardMaterial({ map: pcbTexture("#3b1a6e", "#5428a0"), roughness: 0.5, metalness: 0.1 });
     const pcbSensor = new THREE.MeshStandardMaterial({ map: pcbTexture("#1c2f7a", "#2b44a8"), roughness: 0.5, metalness: 0.1 });
+    const pcbVerde = new THREE.MeshStandardMaterial({ map: pcbTexture("#1d6b3c", "#2a8a50"), roughness: 0.5, metalness: 0.1 });
+    // Plástico impresso em 3D (PLA fosco) da roda separadora.
+    const pla = new THREE.MeshStandardMaterial({ color: "#d8d2e6", roughness: 0.62, metalness: 0.02 });
     const base = new THREE.MeshPhysicalMaterial({
       color: "#0d0913",
       roughness: 0.38,
@@ -32,7 +35,7 @@ export function useMateriais() {
     });
     return {
       aluminio, aluminioEscovado, anodizado, borracha, plasticoPreto, ouro, cobreMotor,
-      caixaReducao, pcbAzul, pcbPreta, pcbRoxa, pcbSensor, base,
+      caixaReducao, pcbAzul, pcbPreta, pcbRoxa, pcbSensor, pcbVerde, pla, base,
     };
   }, []);
 }
@@ -316,23 +319,203 @@ export function FonteAlimentacao({ m, ...props }: { m: Materiais } & ThreeElemen
   );
 }
 
-/** Módulo LCD 16x2 com I²C, inclinado num suporte. */
-export function Lcd({ m, tela, ...props }: { m: Materiais; tela: THREE.Texture } & ThreeElements["group"]) {
+/**
+ * Módulo OLED 0,96" 128x64 I²C (SSD1306): placa quase quadrada (~27 mm), vidro preto com a área
+ * ativa de ~22x11 mm (2:1) e 4 pinos (GND, VCC, SCL, SDA) no topo. Fica num suporte inclinado.
+ * Levemente ampliado (1,25x) para a tela continuar legível nos enquadramentos da câmera.
+ */
+export function Oled({ m, tela, ...props }: { m: Materiais; tela: THREE.Texture } & ThreeElements["group"]) {
   return (
     <group {...props}>
-      <mesh position={[0, 0.17, -0.06]} rotation-x={-0.35} material={m.aluminioEscovado} castShadow>
-        <boxGeometry args={[0.7, 0.34, 0.03]} />
+      {/* Suporte de alumínio dobrado */}
+      <mesh position={[0, 0.005, -0.1]} material={m.aluminioEscovado} castShadow receiveShadow>
+        <boxGeometry args={[0.3, 0.01, 0.2]} />
       </mesh>
-      <group position={[0, 0.24, 0]} rotation-x={-0.35}>
+      <mesh position={[0, 0.13, -0.075]} rotation-x={-0.35} material={m.aluminioEscovado} castShadow>
+        <boxGeometry args={[0.28, 0.26, 0.012]} />
+      </mesh>
+      <group position={[0, 0.22, -0.04]} rotation-x={-0.35} scale={1.25}>
+        {/* Placa */}
         <mesh material={m.pcbAzul} castShadow>
-          <boxGeometry args={[0.8, 0.36, 0.016]} />
+          <boxGeometry args={[0.273, 0.278, 0.012]} />
         </mesh>
-        <RoundedBox args={[0.72, 0.25, 0.04]} radius={0.01} position={[0, 0, 0.025]} material={m.plasticoPreto} castShadow />
-        <mesh position={[0, 0, 0.047]}>
-          <planeGeometry args={[0.64, 0.19]} />
-          <meshStandardMaterial map={tela} emissiveMap={tela} emissive="#ffffff" emissiveIntensity={1.4} toneMapped={false} />
+        {/* Furos de fixação nos cantos */}
+        {[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([x, y]) => (
+          <mesh key={`${x}${y}`} position={[x * 0.115, y * 0.118, 0.0065]} rotation-x={Math.PI / 2} material={m.ouro}>
+            <cylinderGeometry args={[0.014, 0.014, 0.002, 14]} />
+          </mesh>
+        ))}
+        {/* Barra de 4 pinos no topo (GND, VCC, SCL, SDA), saindo por trás */}
+        <mesh position={[0, 0.118, -0.02]} material={m.plasticoPreto}>
+          <boxGeometry args={[0.1, 0.025, 0.025]} />
+        </mesh>
+        {[-1.5, -0.5, 0.5, 1.5].map((k) => (
+          <mesh key={k} position={[k * 0.0254, 0.118, -0.04]} rotation-x={Math.PI / 2} material={m.ouro}>
+            <cylinderGeometry args={[0.0035, 0.0035, 0.07, 6]} />
+          </mesh>
+        ))}
+        {/* Vidro do painel e cabo flexível dobrado na borda de baixo */}
+        <mesh position={[0, -0.018, 0.009]} material={m.plasticoPreto}>
+          <boxGeometry args={[0.267, 0.193, 0.007]} />
+        </mesh>
+        <mesh position={[0, -0.122, 0.004]}>
+          <boxGeometry args={[0.12, 0.018, 0.004]} />
+          <meshStandardMaterial color="#b8862b" roughness={0.5} />
+        </mesh>
+        {/* Área ativa 128x64 (21,7 x 10,9 mm) */}
+        <mesh position={[0, -0.004, 0.0131]}>
+          <planeGeometry args={[0.217, 0.109]} />
+          <meshStandardMaterial color="#000" map={tela} emissiveMap={tela} emissive="#ffffff" emissiveIntensity={1.25} toneMapped={false} />
         </mesh>
       </group>
+    </group>
+  );
+}
+
+// ------------------------------------------------------------
+// Roda separadora + motor de passo 28BYJ-48 + driver ULN2003
+// ------------------------------------------------------------
+type RodaProps = {
+  m: Materiais;
+  raio: number;
+  /** Altura do topo do piso (fundo dos compartimentos) e da borda das paredes. */
+  fundo: number;
+  borda: number;
+  /** Cor de cada compartimento (A, B, C) e o ângulo de parada (rad) que o põe de frente para a esteira. */
+  cores: readonly string[];
+  angulos: readonly number[];
+} & ThreeElements["group"];
+
+/**
+ * Roda impressa em 3D, eixo vertical: piso, parede externa e 3 divisórias a 120°.
+ * Com o rotor girado no ângulo de parada de um compartimento, ele fica voltado para -X (a esteira).
+ */
+export const RodaSeparadora = forwardRef<THREE.Group, RodaProps>(function RodaSeparadora(
+  { m, raio: R, fundo, borda, cores, angulos, ...props },
+  rotor,
+) {
+  const piso = 0.035;
+  const alt = borda - fundo;
+  const parede = useMemo(() => {
+    // Parede externa: anel extrudado (cilindro oco), com a base em y = 0.
+    const forma = new THREE.Shape().absarc(0, 0, R, 0, Math.PI * 2, false);
+    forma.holes.push(new THREE.Path().absarc(0, 0, R - 0.025, 0, Math.PI * 2, true));
+    const g = new THREE.ExtrudeGeometry(forma, { depth: alt, bevelEnabled: false, curveSegments: 64 });
+    g.rotateX(-Math.PI / 2);
+    return g;
+  }, [R, alt]);
+  // Setor de 120° centrado em -X (ângulo π no plano do círculo), com folga para as divisórias.
+  const setor = (folga: number) => [Math.PI - Math.PI / 3 + folga, (2 * Math.PI) / 3 - 2 * folga] as const;
+  return (
+    <group {...props}>
+      <group ref={rotor}>
+        {/* Piso */}
+        <mesh position={[0, fundo - piso / 2, 0]} material={m.pla} castShadow receiveShadow>
+          <cylinderGeometry args={[R, R, piso, 64]} />
+        </mesh>
+        <mesh position={[0, fundo, 0]} geometry={parede} material={m.pla} castShadow receiveShadow />
+        {/* Cubo central */}
+        <mesh position={[0, fundo + alt / 2, 0]} material={m.pla} castShadow>
+          <cylinderGeometry args={[0.06, 0.07, alt, 24]} />
+        </mesh>
+        {/* Divisórias nas fronteiras entre os compartimentos (a 60° do centro de cada um) */}
+        {[0, 1, 2].map((k) => (
+          <group key={k} rotation-y={(k * 2 * Math.PI) / 3}>
+            <mesh position={[R / 2, fundo + alt / 2, 0]} material={m.pla} castShadow>
+              <boxGeometry args={[R - 0.02, alt, 0.025]} />
+            </mesh>
+          </group>
+        ))}
+        {/* Compartimentos: fundo e faixa da borda na cor da peça */}
+        {cores.map((cor, k) => (
+          <group key={cor} rotation-y={-angulos[k]}>
+            <mesh position={[0, fundo + 0.002, 0]} rotation-x={-Math.PI / 2}>
+              <circleGeometry args={[R - 0.03, 32, ...setor(0.03)]} />
+              <meshStandardMaterial color={cor} emissive={cor} emissiveIntensity={0.25} roughness={0.55} />
+            </mesh>
+            <mesh position={[0, borda + 0.003, 0]} rotation-x={-Math.PI / 2}>
+              <ringGeometry args={[R - 0.025, R, 32, 1, ...setor(0.05)]} />
+              <meshStandardMaterial color={cor} emissive={cor} emissiveIntensity={1.2} toneMapped={false} />
+            </mesh>
+          </group>
+        ))}
+      </group>
+    </group>
+  );
+});
+
+/** Motor de passo 28BYJ-48 (lata de ~28 mm com abas de fixação), eixo para cima. */
+export function MotorPasso({ m, ...props }: { m: Materiais } & ThreeElements["group"]) {
+  return (
+    <group {...props}>
+      <mesh position={[0, 0.095, 0]} material={m.cobreMotor} castShadow>
+        <cylinderGeometry args={[0.14, 0.14, 0.19, 36]} />
+      </mesh>
+      {/* Abas de fixação com parafusos */}
+      <mesh position={[0, 0.185, 0]} material={m.cobreMotor} castShadow>
+        <boxGeometry args={[0.42, 0.01, 0.07]} />
+      </mesh>
+      {[-0.175, 0.175].map((x) => (
+        <mesh key={x} position={[x, 0.195, 0]} material={m.plasticoPreto}>
+          <cylinderGeometry args={[0.02, 0.02, 0.014, 12]} />
+        </mesh>
+      ))}
+      {/* Tampa da redução e eixo (deslocado do centro, como no motor real) */}
+      <mesh position={[0, 0.2, 0.04]} castShadow>
+        <cylinderGeometry args={[0.045, 0.045, 0.02, 20]} />
+        <meshStandardMaterial color="#2a62c9" roughness={0.45} />
+      </mesh>
+      <mesh position={[0, 0.225, 0.04]} material={m.aluminio}>
+        <cylinderGeometry args={[0.025, 0.025, 0.04, 12]} />
+      </mesh>
+      {/* Caixa azul da saída dos fios, na lateral */}
+      <mesh position={[0, 0.09, -0.15]} castShadow>
+        <boxGeometry args={[0.15, 0.16, 0.05]} />
+        <meshStandardMaterial color="#2a62c9" roughness={0.45} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Driver ULN2003 (placa ~35x32 mm, CI DIP-16, conector branco do motor e 4 LEDs das bobinas). */
+export function Uln2003({
+  m,
+  leds,
+  ...props
+}: { m: Materiais; leds: React.RefObject<(THREE.MeshStandardMaterial | null)[]> } & ThreeElements["group"]) {
+  return (
+    <group {...props}>
+      <mesh position={[0, 0.03, 0]} material={m.pcbVerde} castShadow receiveShadow>
+        <boxGeometry args={[0.35, 0.016, 0.32]} />
+      </mesh>
+      {/* ULN2003 (DIP-16) */}
+      <mesh position={[-0.06, 0.055, 0]} material={m.plasticoPreto} castShadow>
+        <boxGeometry args={[0.07, 0.035, 0.2]} />
+      </mesh>
+      {/* Conector branco de 5 vias do motor */}
+      <mesh position={[0.1, 0.07, -0.09]} castShadow>
+        <boxGeometry args={[0.07, 0.07, 0.12]} />
+        <meshStandardMaterial color="#efece4" roughness={0.5} />
+      </mesh>
+      {/* Pinos de entrada IN1–IN4 */}
+      <mesh position={[-0.02, 0.05, 0.14]} material={m.plasticoPreto}>
+        <boxGeometry args={[0.2, 0.025, 0.025]} />
+      </mesh>
+      {/* LEDs A–D: o Bench acende conforme o passo das bobinas */}
+      {[0, 1, 2, 3].map((k) => (
+        <mesh key={k} position={[0.1, 0.044, 0.0 + k * 0.035]}>
+          <boxGeometry args={[0.02, 0.012, 0.016]} />
+          <meshStandardMaterial
+            ref={(el) => {
+              leds.current[k] = el;
+            }}
+            color="#2a0a10"
+            emissive="#ff2e2e"
+            emissiveIntensity={0}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
     </group>
   );
 }
